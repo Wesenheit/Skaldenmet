@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
-	"skaldenmet/internal/comm"
+	"skaldenmet/internal/proces"
 	"sync"
 	"time"
 
@@ -30,7 +30,7 @@ func NewState(v *viper.Viper) (*StateManager, error) {
 		fullTree: make(map[int32]int32),
 	}, nil
 }
-func runDispatcher(processChan <-chan comm.Process, pidChan chan<- int32, stateChan chan<- comm.Process) {
+func runDispatcher(processChan <-chan proces.Process, pidChan chan<- int32, stateChan chan<- proces.Process) {
 	for proc := range processChan {
 		pidChan <- proc.PGID
 		if stateChan != nil {

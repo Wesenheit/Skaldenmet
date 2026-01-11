@@ -62,8 +62,7 @@ func AggregateUniqueCPU(before CPUSummaryMetric, metrics []CPUMetric) CPUSummary
 	previous_duration := end_time.Sub(before.Start).Seconds()
 	current_duration := recorder_time.Sub(end_time).Seconds()
 
-	currentCPU := (previousCPU*previous_duration + CPU*current_duration) / (current_duration + previousCPU)
-	currentMemory := (previousMemory*previous_duration + Memory*current_duration) / (current_duration + previousCPU)
-
+	currentCPU := (previousCPU*previous_duration + CPU*current_duration) / (current_duration + previous_duration)
+	currentMemory := (previousMemory*previous_duration + Memory*current_duration) / (current_duration + previous_duration)
 	return CPUSummaryMetric{Start: before.Start, End: recorder_time, CPU: currentCPU, Memory: currentMemory, Name: before.Name}
 }

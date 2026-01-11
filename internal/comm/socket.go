@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 	"os"
+	"skaldenmet/internal/proces"
+	"skaldenmet/internal/storage"
 )
 
 type UnixSocketMonitor struct {
@@ -12,7 +14,7 @@ type UnixSocketMonitor struct {
 	listner    net.Listener
 }
 
-func (u *UnixSocketMonitor) Notify(info Process) error {
+func (u *UnixSocketMonitor) Notify(info proces.Process) error {
 	conn, err := net.Dial("unix", u.SocketPath)
 	if err != nil {
 		return err
@@ -25,13 +27,13 @@ func (u *UnixSocketMonitor) Finalize() error {
 	return u.listner.Close()
 }
 
-func (u *UnixSocketMonitor) StartListening(processChan chan<- Process) error {
+func (u *UnixSocketMonitor) StartListening(processChan chan<- proces.Process) error {
 	for {
 		conn, err := u.listner.Accept()
 		if err != nil {
 			continue
 		}
-		var info Process
+		var info proces.Process
 		if err := json.NewDecoder(conn).Decode(&info); err != nil {
 			log.Printf("Error during decoding %s", err)
 		}
@@ -40,8 +42,7 @@ func (u *UnixSocketMonitor) StartListening(processChan chan<- Process) error {
 	}
 }
 
-func Create() (*UnixSocketMonitor, error) {
-	socketPath := "/tmp/skald.socket"
+func Create(socketPath string) (*UnixSocketMonitor, error) {
 	if _, err := os.Stat(socketPath); err == nil {
 		if err := os.Remove(socketPath); err != nil {
 			return nil, err
@@ -60,4 +61,20 @@ func Create() (*UnixSocketMonitor, error) {
 		SocketPath: socketPath,
 		listner:    listener,
 	}, nil
+}
+func (u *UnixSocketMonitor) ServeQueries(stor storage.Storage) {
+	for {
+		conn, err := u.listner.Accept()
+		if err != nil {
+			continue
+		}
+		go func(c net.Conn) {
+			defer c.Close()
+			data := stor.GetCPUSnapshot()
+			err := json.NewEncoder(c).Encode(data)
+			if err != nil {
+				log.Printf("Failed to encode and send: %v", err)
+			}
+		}(conn)
+	}
 }

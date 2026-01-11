@@ -9,6 +9,7 @@ import (
 	"skaldenmet/internal/collectors"
 	"skaldenmet/internal/comm"
 	"skaldenmet/internal/metrics"
+	"skaldenmet/internal/proces"
 	"skaldenmet/internal/storage"
 	"sync"
 	"syscall"
@@ -19,7 +20,8 @@ import (
 )
 
 type Daemon struct {
-	comm       comm.CommManager
+	reciver    comm.CommManager
+	server     comm.CommManager
 	collectors []collectors.Collector
 	storage    storage.Storage
 	wg         sync.WaitGroup
@@ -62,11 +64,15 @@ func getCollectors(v *viper.Viper) ([]collectors.Collector, error) {
 }
 
 func NewDaemon(v *viper.Viper) (*Daemon, error) {
-	comm_handle, err := comm.Create()
+	reciver_handle, err := comm.Create("/tmp/skald.socket")
 	if err != nil {
 		return nil, err
 	}
 
+	server_handle, err := comm.Create("/tmp/skald_serve.socket")
+	if err != nil {
+		return nil, err
+	}
 	collectorList, err := getCollectors(v)
 	if err != nil {
 		return nil, err
@@ -82,7 +88,8 @@ func NewDaemon(v *viper.Viper) (*Daemon, error) {
 		return nil, err
 	}
 	daemon := &Daemon{
-		comm:       comm_handle,
+		reciver:    reciver_handle,
+		server:     server_handle,
 		collectors: collectorList,
 		manager:    state,
 		storage:    store,
@@ -91,7 +98,11 @@ func NewDaemon(v *viper.Viper) (*Daemon, error) {
 }
 
 func (d *Daemon) Finalize(ctx context.Context) {
-	err := d.comm.Finalize()
+	err := d.reciver.Finalize()
+	if err != nil {
+		log.Printf("Error during finalization: %s", err)
+	}
+	err = d.server.Finalize()
 	if err != nil {
 		log.Printf("Error during finalization: %s", err)
 	}
@@ -99,12 +110,14 @@ func (d *Daemon) Finalize(ctx context.Context) {
 }
 
 func (d *Daemon) Start(ctx context.Context) error {
-	processChan := make(chan comm.Process, 100)
-	procStoreChan := make(chan comm.Process, 100)
+	processChan := make(chan proces.Process, 100)
+	procStoreChan := make(chan proces.Process, 100)
 	pidChan := make(chan int32, 100)
 	storageChan := make(chan []metrics.Metric, 100)
 
-	go d.comm.StartListening(processChan)
+	go d.reciver.StartListening(processChan)
+	go d.server.ServeQueries(d.storage)
+
 	go d.manager.Start(ctx, pidChan)
 	go runDispatcher(processChan, pidChan, procStoreChan)
 	go d.storage.Store(ctx, procStoreChan, storageChan)
@@ -115,6 +128,7 @@ func (d *Daemon) Start(ctx context.Context) error {
 	}
 
 	<-ctx.Done()
+	d.wg.Wait()
 	return nil
 }
 
@@ -125,6 +139,7 @@ func (d *Daemon) RunCollector(ctx context.Context, collector collectors.Collecto
 	name := collector.Name()
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	defer d.wg.Done()
 
 	for {
 		select {

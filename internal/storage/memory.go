@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
-	"skaldenmet/internal/comm"
 	"skaldenmet/internal/metrics"
+	"skaldenmet/internal/proces"
 	"sync"
 	"time"
 
@@ -38,7 +38,7 @@ func NewMemoryStorage(v *viper.Viper) (*MemoryStorage, error) {
 		interval:    duration,
 	}, nil
 }
-func (m *MemoryStorage) Store(ctx context.Context, procChan chan comm.Process, metChan chan []metrics.Metric) error {
+func (m *MemoryStorage) Store(ctx context.Context, procChan chan proces.Process, metChan chan []metrics.Metric) error {
 	ticker := time.NewTicker(m.interval)
 	defer ticker.Stop()
 
@@ -61,7 +61,6 @@ func (m *MemoryStorage) Store(ctx context.Context, procChan chan comm.Process, m
 				Start: proc.StartTime,
 				Name:  proc.Name,
 			}
-			log.Printf("Process %s,%d", proc.Name, proc.PGID)
 			m.mu.Unlock()
 
 		case batch := <-metChan:
@@ -76,7 +75,7 @@ func (m *MemoryStorage) Close() error {
 func (m *MemoryStorage) AggregateBatch(met_list []metrics.Metric) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var toAggregateCPU map[int32][]metrics.CPUMetric
+	toAggregateCPU := make(map[int32][]metrics.CPUMetric)
 	for _, metric := range met_list {
 		cpuMetric, ok := metric.(*metrics.CPUMetric)
 		if ok {
@@ -88,7 +87,16 @@ func (m *MemoryStorage) AggregateBatch(met_list []metrics.Metric) {
 		m.storage_CPU[ppid] = metrics.AggregateUniqueCPU(m.storage_CPU[ppid], aggregated)
 	}
 }
+func (m *MemoryStorage) GetCPUSnapshot() map[int32]metrics.CPUSummaryMetric {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
+	snapshot := make(map[int32]metrics.CPUSummaryMetric)
+	for k, v := range m.storage_CPU {
+		snapshot[k] = v
+	}
+	return snapshot
+}
 func (m *MemoryStorage) Interval() time.Duration {
 	return m.interval
 }

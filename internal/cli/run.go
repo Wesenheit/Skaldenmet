@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"skaldenmet/internal/comm"
+	"skaldenmet/internal/proces"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,9 +28,14 @@ func getLogFiles(name string) (*os.File, *os.File, error) {
 var RunCmd = &cobra.Command{
 	Use:   "run",
 	Short: "run the command",
-	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		userCommand := args[0]
+		dashIndex := cmd.ArgsLenAtDash()
+		var userCommand string
+		if dashIndex == -1 {
+			userCommand = strings.Join(args, " ")
+		} else {
+			userCommand = strings.Join(args[dashIndex:], " ")
+		}
 
 		var name string
 		if varName == "" {
@@ -41,20 +48,20 @@ var RunCmd = &cobra.Command{
 			log.Print("Failed to create files")
 		}
 
-		externalCmd := exec.Command(userCommand)
-		externalCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-
-		externalCmd.Stdout = file_out
-		externalCmd.Stderr = file_err
+		Cmd := exec.Command("sh", "-c", userCommand)
+		Cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		Cmd.Env = os.Environ()
+		Cmd.Stdout = file_out
+		Cmd.Stderr = file_err
 		defer file_err.Close()
 		defer file_out.Close()
 
-		err = externalCmd.Start()
+		err = Cmd.Start()
 		if err != nil {
 			log.Printf("failed to execute command: %s", err)
 		}
-		pgid, _ := syscall.Getpgid(externalCmd.Process.Pid)
-		info := comm.Process{
+		pgid, _ := syscall.Getpgid(Cmd.Process.Pid)
+		info := proces.Process{
 			PGID:      int32(pgid),
 			Command:   args[0],
 			StartTime: time.Now(),
