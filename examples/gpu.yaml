@@ -1,0 +1,10 @@
+storage:
+  name: "memory"
+  size: 10000
+  interval: "4s"
+nvidiaCollector:
+  cpuThreshold: 50
+  interval: "2s"
+  size: 10
+state:
+  interval: "1s"

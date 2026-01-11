@@ -3,8 +3,9 @@ package collectors
 import (
 	"errors"
 	"log"
-	"skaldenmet/internal/metrics"
 	"time"
+
+	"skaldenmet/internal/metrics"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/spf13/viper"
@@ -33,10 +34,10 @@ type NVIDIADeviceState struct {
 	Time        time.Time
 }
 
-func DeviceStateToMetric(device_state *NVIDIADeviceState, pid int32, device_id int) *metrics.GPUMetric {
-
+func DeviceStateToMetric(device_state *NVIDIADeviceState, pid int32, ppid int32, device_id int) *metrics.GPUMetric {
 	return &metrics.GPUMetric{
 		Pid_id:      pid,
+		PPid_id:     ppid,
 		Util:        device_state.Util,
 		Memory:      device_state.Memory,
 		Device:      device_id,
@@ -47,26 +48,25 @@ func DeviceStateToMetric(device_state *NVIDIADeviceState, pid int32, device_id i
 }
 
 func (c *NVIDIAMonitor) MonitorDevice(device nvml.Device) (*NVIDIADeviceState, error) {
-
-	//Memory
+	// Memory
 	memInfo, ret := nvml.DeviceGetMemoryInfo(device)
 	if ret != nvml.SUCCESS {
 		return nil, errors.New("Failed (mem)")
 	}
 
-	//Utilization
+	// Utilization
 	utilization, ret := nvml.DeviceGetUtilizationRates(device)
 	if ret != nvml.SUCCESS {
 		return nil, errors.New("Failed (util)")
 	}
 
-	//Temperature
+	// Temperature
 	temp, ret := nvml.DeviceGetTemperature(device, nvml.TEMPERATURE_GPU)
 	if ret != nvml.SUCCESS {
 		return nil, errors.New("Failed (temp)")
 	}
 
-	//Power
+	// Power
 	power, ret := nvml.DeviceGetPowerUsage(device)
 	if ret != nvml.SUCCESS {
 		return nil, errors.New("Failed (power)")
@@ -104,7 +104,7 @@ func (c *NVIDIAMonitor) Collect(storage_chan chan []metrics.Metric, targets map[
 			pid := int32(proc.Pid)
 
 			if _, isTarget := targets[pid]; isTarget {
-				metric := DeviceStateToMetric(dev_state, pid, device_id)
+				metric := DeviceStateToMetric(dev_state, pid, targets[pid], device_id)
 				c.buffer = append(c.buffer, metric)
 			}
 		}

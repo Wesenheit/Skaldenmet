@@ -61,6 +61,7 @@ var RunCmd = &cobra.Command{
 			log.Printf("failed to execute command: %s", err)
 		}
 		pgid, _ := syscall.Getpgid(Cmd.Process.Pid)
+		log.Printf("Started command %s with PPID %d", name, pgid)
 		info := proces.Process{
 			PGID:      int32(pgid),
 			Command:   args[0],

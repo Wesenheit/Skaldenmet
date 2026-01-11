@@ -22,9 +22,21 @@ func (m *GPUMetric) Name() string {
 func (m *GPUMetric) Pid() int32 {
 	return m.Pid_id
 }
+
 func (m *GPUMetric) PPid() int32 {
 	return m.PPid_id
 }
+
 func (m *GPUMetric) Timestamp() time.Time {
 	return m.Time
+}
+
+type GPUSummaryMetric struct {
+	Start   time.Time
+	End     time.Time
+	Util    float64
+	Memory  float64
+	Energy  float64
+	MaxTemp float64
+	Name    string
 }
