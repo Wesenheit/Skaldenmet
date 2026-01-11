@@ -1,0 +1,9 @@
+storage:
+  name: "memory"
+  size: 10000
+  interval: "4s"
+cpuCollector:
+  cpuThreshold: 50
+  interval: "2s"
+  size: 10
+
