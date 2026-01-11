@@ -9,6 +9,7 @@ import (
 	"skaldenmet/internal/metrics"
 	"sort"
 	"syscall"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -26,7 +27,7 @@ func IsProcessActive(pid int32) bool {
 func RenderTable(data map[int32]metrics.CPUSummaryMetric) {
 	table := tablewriter.NewWriter(os.Stdout)
 
-	table.Header([]string{"PID", "Process Name", "CPU % (AVG)", "MEM % (AVG)", "Status"})
+	table.Header([]string{"PID", "Process Name", "CPU % (AVG)", "MEM % (AVG)", "Status", "Duration"})
 
 	keys := make([]int, 0, len(data))
 	for k := range data {
@@ -37,10 +38,16 @@ func RenderTable(data map[int32]metrics.CPUSummaryMetric) {
 	for _, pid := range keys {
 		metric := data[int32(pid)]
 		var status string
+		var duration time.Duration
 		if IsProcessActive(int32(pid)) {
 			status = "Active"
+			duration = time.Now().Sub(metric.Start)
 		} else {
 			status = "Finished"
+			if !metric.End.IsZero() {
+				duration = metric.End.Sub(metric.Start)
+			}
+
 		}
 		row := []string{
 			fmt.Sprintf("%d", pid),
@@ -48,6 +55,7 @@ func RenderTable(data map[int32]metrics.CPUSummaryMetric) {
 			fmt.Sprintf("%.2f%%", metric.CPU),
 			fmt.Sprintf("%.2f%%", metric.Memory),
 			status,
+			duration.String(),
 		}
 		table.Append(row)
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	rootCmd := &cobra.Command{Use: "Phylax"}
+	rootCmd := &cobra.Command{Use: "met"}
 
 	var runCobra = run.RunCmd
 	var daemonCobra = daemon.DaemonCmd
