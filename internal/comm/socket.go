@@ -41,7 +41,7 @@ func (u *UnixSocketMonitor) StartListening(processChan chan<- Process) error {
 }
 
 func Create() (*UnixSocketMonitor, error) {
-	socketPath := "/tmp/skuld.socket"
+	socketPath := "/tmp/skald.socket"
 	if _, err := os.Stat(socketPath); err == nil {
 		if err := os.Remove(socketPath); err != nil {
 			return nil, err

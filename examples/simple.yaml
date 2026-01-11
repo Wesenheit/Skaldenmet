@@ -6,4 +6,5 @@ cpuCollector:
   cpuThreshold: 50
   interval: "2s"
   size: 10
-
+state:
+  interval: "1s"

@@ -11,7 +11,7 @@ import (
 
 type Collector interface {
 	Name() string
-	Collect(storage_chan chan []metrics.Metric, targets map[int32]struct{}) error
+	Collect(storage_chan chan []metrics.Metric, targets map[int32]int32) error
 	Interval() time.Duration
 	Finalize() error
 }
@@ -41,9 +41,9 @@ func NewCpuBaseCollector(v *viper.Viper) (*CpuBaseCollector, error) {
 
 }
 
-func (c *CpuBaseCollector) Collect(storage_chan chan []metrics.Metric, targets map[int32]struct{}) error {
+func (c *CpuBaseCollector) Collect(storage_chan chan []metrics.Metric, targets map[int32]int32) error {
 
-	for pid := range targets {
+	for pid, ppid := range targets {
 		p, err := process.NewProcess(pid)
 		if err != nil {
 			continue
@@ -60,7 +60,8 @@ func (c *CpuBaseCollector) Collect(storage_chan chan []metrics.Metric, targets m
 		}
 
 		newMetric := &metrics.CPUMetric{
-			Pid_id: uint64(pid),
+			Pid_id: pid,
+			PPID:   ppid,
 			CPU:    cpuPer,
 			Memory: float64(memPer),
 			Time:   time.Now(),

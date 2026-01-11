@@ -33,7 +33,7 @@ type NVIDIADeviceState struct {
 	Time        time.Time
 }
 
-func DeviceStateToMetric(device_state *NVIDIADeviceState, pid uint64, device_id int) *metrics.GPUMetric {
+func DeviceStateToMetric(device_state *NVIDIADeviceState, pid int32, device_id int) *metrics.GPUMetric {
 
 	return &metrics.GPUMetric{
 		Pid_id:      pid,
@@ -83,7 +83,7 @@ func (c *NVIDIAMonitor) MonitorDevice(device nvml.Device) (*NVIDIADeviceState, e
 	return metric, nil
 }
 
-func (c *NVIDIAMonitor) Collect(storage_chan chan []metrics.Metric, targets map[int32]struct{}) error {
+func (c *NVIDIAMonitor) Collect(storage_chan chan []metrics.Metric, targets map[int32]int32) error {
 	for device_id := 0; device_id < int(c.device_count); device_id++ {
 		device, ret := nvml.DeviceGetHandleByIndex(device_id)
 		if ret != nvml.SUCCESS {
@@ -104,7 +104,7 @@ func (c *NVIDIAMonitor) Collect(storage_chan chan []metrics.Metric, targets map[
 			pid := int32(proc.Pid)
 
 			if _, isTarget := targets[pid]; isTarget {
-				metric := DeviceStateToMetric(dev_state, uint64(pid), device_id)
+				metric := DeviceStateToMetric(dev_state, pid, device_id)
 				c.buffer = append(c.buffer, metric)
 			}
 		}

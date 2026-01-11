@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"skaldenmet/internal/comm"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -41,6 +42,7 @@ var RunCmd = &cobra.Command{
 		}
 
 		externalCmd := exec.Command(userCommand)
+		externalCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 		externalCmd.Stdout = file_out
 		externalCmd.Stderr = file_err
@@ -49,18 +51,20 @@ var RunCmd = &cobra.Command{
 
 		err = externalCmd.Start()
 		if err != nil {
-			log.Printf("failed to execute command: %w", err)
+			log.Printf("failed to execute command: %s", err)
 		}
+		pgid, _ := syscall.Getpgid(externalCmd.Process.Pid)
 		info := comm.Process{
-			PID:       externalCmd.Process.Pid,
+			PGID:      int32(pgid),
 			Command:   args[0],
 			StartTime: time.Now(),
+			Name:      name,
 		}
 
 		manager := comm.UnixSocketMonitor{SocketPath: "/tmp/skald.socket"}
 		err = manager.Notify(info)
 		if err != nil {
-			log.Printf("failed to notify: %w", err)
+			log.Printf("failed to notify: %s", err)
 		}
 	},
 }

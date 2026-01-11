@@ -8,16 +8,22 @@ import (
 	"os/signal"
 	"skaldenmet/internal/collectors"
 	"skaldenmet/internal/comm"
+	"skaldenmet/internal/metrics"
+	"skaldenmet/internal/storage"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 type Daemon struct {
-	comm         comm.CommManager
-	collectors   []collectors.Collector
-	trackingList []comm.Process
+	comm       comm.CommManager
+	collectors []collectors.Collector
+	storage    storage.Storage
+	wg         sync.WaitGroup
+	manager    *StateManager
 }
 
 var NameFunMapping = map[string]func(v *viper.Viper) (collectors.Collector, error){
@@ -65,9 +71,21 @@ func NewDaemon(v *viper.Viper) (*Daemon, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	state, err := NewState(v)
+	if err != nil {
+		return nil, err
+	}
+
+	store, err := storage.NewMemoryStorage(v)
+	if err != nil {
+		return nil, err
+	}
 	daemon := &Daemon{
 		comm:       comm_handle,
 		collectors: collectorList,
+		manager:    state,
+		storage:    store,
 	}
 	return daemon, nil
 }
@@ -82,9 +100,44 @@ func (d *Daemon) Finalize(ctx context.Context) {
 
 func (d *Daemon) Start(ctx context.Context) error {
 	processChan := make(chan comm.Process, 100)
-	go d.comm.StartListening(processChan)
+	procStoreChan := make(chan comm.Process, 100)
+	pidChan := make(chan int32, 100)
+	storageChan := make(chan []metrics.Metric, 100)
 
+	go d.comm.StartListening(processChan)
+	go d.manager.Start(ctx, pidChan)
+	go runDispatcher(processChan, pidChan, procStoreChan)
+	go d.storage.Store(ctx, procStoreChan, storageChan)
+
+	for _, collector := range d.collectors {
+		d.wg.Add(1)
+		go d.RunCollector(ctx, collector, storageChan)
+	}
+
+	<-ctx.Done()
 	return nil
+}
+
+func (d *Daemon) RunCollector(ctx context.Context, collector collectors.Collector,
+	storageChan chan []metrics.Metric,
+) error {
+	interval := collector.Interval()
+	name := collector.Name()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("Stopping collector: %s", name)
+			return nil
+		case <-ticker.C:
+			err := collector.Collect(storageChan, d.manager.GetSnapshot())
+			if err != nil {
+				return err
+			}
+		}
+	}
 }
 
 var DaemonCmd = &cobra.Command{
