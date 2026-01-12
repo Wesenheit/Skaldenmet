@@ -1,10 +1,9 @@
 storage:
   name: "memory"
   size: 10000
-  interval: "4s"
+  interval: "1s"
 nvidiaCollector:
-  cpuThreshold: 50
-  interval: "2s"
+  interval: "0.5s"
   size: 10
 state:
-  interval: "1s"
+  interval: "2s"

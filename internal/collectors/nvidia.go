@@ -71,9 +71,8 @@ func (c *NVIDIAMonitor) MonitorDevice(device nvml.Device) (*NVIDIADeviceState, e
 	if ret != nvml.SUCCESS {
 		return nil, errors.New("Failed (power)")
 	}
-
 	metric := &NVIDIADeviceState{
-		Memory:      float64(memInfo.Used),
+		Memory:      float64(memInfo.Used) / (1024 * 1024 * 1024),
 		Util:        float64(utilization.Gpu),
 		Temperature: float64(temp),
 		PowerW:      float64(power),
