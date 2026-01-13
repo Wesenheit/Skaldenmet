@@ -2,6 +2,10 @@ package proces
 
 import "time"
 
+type Request struct {
+	Type string `json:"type"`
+}
+
 type Process struct {
 	PGID      int32     `json:"pid"`
 	Name      string    `json:"name"`

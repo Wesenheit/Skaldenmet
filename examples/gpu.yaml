@@ -1,9 +1,9 @@
 storage:
   name: "memory"
   size: 10000
-  interval: "4s"
-cpuCollector:
   interval: "1s"
+nvidiaCollector:
+  interval: "0.5s"
   size: 10
 state:
   interval: "2s"

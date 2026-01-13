@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log"
+	"os"
 	"skaldenmet/internal/proces"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/process"
@@ -61,8 +63,28 @@ func (s *StateManager) AddRoot(pid int32) {
 	defer s.Unlock()
 	s.rootPIDs[pid] = struct{}{}
 }
+func (s *StateManager) refreshProcessMap() {
+	for pid := range s.rootPIDs {
+		proc, err := os.FindProcess(int(pid))
+		if err != nil {
+			delete(s.rootPIDs, pid)
+			continue
+		}
+
+		err = proc.Signal(syscall.Signal(0))
+
+		if err != nil {
+			delete(s.rootPIDs, pid)
+		}
+	}
+}
 
 func (s *StateManager) RefreshTree() {
+	s.refreshProcessMap()
+	if len(s.rootPIDs) == 0 {
+		return
+	}
+
 	allProcs, err := process.Processes()
 	if err != nil {
 		return

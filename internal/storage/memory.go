@@ -14,7 +14,7 @@ import (
 
 type MemoryStorage struct {
 	storage_CPU map[int32]metrics.CPUSummaryMetric
-	storage_GPU map[int32]metrics.CPUSummaryMetric
+	storage_GPU map[int32]metrics.GPUSummaryMetric
 	mu          sync.RWMutex
 	interval    time.Duration
 	maxSize     uint32
@@ -34,6 +34,7 @@ func NewMemoryStorage(v *viper.Viper) (*MemoryStorage, error) {
 
 	return &MemoryStorage{
 		storage_CPU: make(map[int32]metrics.CPUSummaryMetric),
+		storage_GPU: make(map[int32]metrics.GPUSummaryMetric),
 		maxSize:     uint32(maxSize),
 		interval:    duration,
 	}, nil
@@ -61,6 +62,10 @@ func (m *MemoryStorage) Store(ctx context.Context, procChan chan proces.Process,
 				Start: proc.StartTime,
 				Name:  proc.Name,
 			}
+			m.storage_GPU[proc.PGID] = metrics.GPUSummaryMetric{
+				Start: proc.StartTime,
+				Name:  proc.Name,
+			}
 			m.mu.Unlock()
 
 		case batch := <-metChan:
@@ -72,31 +77,49 @@ func (m *MemoryStorage) Close() error {
 	return nil
 }
 
-func (m *MemoryStorage) AggregateBatch(met_list []metrics.Metric) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	toAggregateCPU := make(map[int32][]metrics.CPUMetric)
-	for _, metric := range met_list {
-		cpuMetric, ok := metric.(*metrics.CPUMetric)
-		if ok {
-			PPID := metric.PPid()
-			toAggregateCPU[PPID] = append(toAggregateCPU[PPID], *cpuMetric)
+func AggregateAny[S any, T metrics.Metric, V any](
+	metList []metrics.Metric,
+	storage map[int32]S,
+	aggregator func(S, []V) S,
+	convert func(T) V,
+) {
+	toAggregate := make(map[int32][]V)
+	for _, met := range metList {
+		if specific, ok := met.(T); ok {
+			ppid := specific.PPid()
+			toAggregate[ppid] = append(toAggregate[ppid], convert(specific))
 		}
 	}
-	for ppid, aggregated := range toAggregateCPU {
-		m.storage_CPU[ppid] = metrics.AggregateUniqueCPU(m.storage_CPU[ppid], aggregated)
+	for ppid, list := range toAggregate {
+		storage[ppid] = aggregator(storage[ppid], list)
 	}
 }
-func (m *MemoryStorage) GetCPUSnapshot() map[int32]metrics.CPUSummaryMetric {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 
-	snapshot := make(map[int32]metrics.CPUSummaryMetric)
-	for k, v := range m.storage_CPU {
+func (m *MemoryStorage) AggregateBatch(metList []metrics.Metric) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	AggregateAny(metList, m.storage_CPU, metrics.AggregateUniqueCPU, func(ptr *metrics.CPUMetric) metrics.CPUMetric { return *ptr })
+	AggregateAny(metList, m.storage_GPU, metrics.AggregateUniqueGPU, func(ptr *metrics.GPUMetric) metrics.GPUMetric { return *ptr })
+}
+
+func GetSnapshot[T any](storage map[int32]T, mu *sync.RWMutex) map[int32]T {
+	mu.RLock()
+	defer mu.RUnlock()
+	snapshot := make(map[int32]T, len(storage))
+	for k, v := range storage {
 		snapshot[k] = v
 	}
 	return snapshot
 }
+
+func (m *MemoryStorage) GetCPUSnapshot() map[int32]metrics.CPUSummaryMetric {
+	return GetSnapshot(m.storage_CPU, &m.mu)
+}
+
+func (m *MemoryStorage) GetGPUSnapshot() map[int32]metrics.GPUSummaryMetric {
+	return GetSnapshot(m.storage_GPU, &m.mu)
+}
+
 func (m *MemoryStorage) Interval() time.Duration {
 	return m.interval
 }

@@ -12,4 +12,5 @@ type Storage interface {
 	Close() error
 	Interval() time.Duration
 	GetCPUSnapshot() map[int32]metrics.CPUSummaryMetric
+	GetGPUSnapshot() map[int32]metrics.GPUSummaryMetric
 }

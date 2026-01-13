@@ -62,7 +62,7 @@ func Create(socketPath string) (*UnixSocketMonitor, error) {
 		listner:    listener,
 	}, nil
 }
-func (u *UnixSocketMonitor) ServeQueries(stor storage.Storage) {
+func (u *UnixSocketMonitor) ServeQueries(provider storage.Storage) {
 	for {
 		conn, err := u.listner.Accept()
 		if err != nil {
@@ -70,8 +70,24 @@ func (u *UnixSocketMonitor) ServeQueries(stor storage.Storage) {
 		}
 		go func(c net.Conn) {
 			defer c.Close()
-			data := stor.GetCPUSnapshot()
-			err := json.NewEncoder(c).Encode(data)
+
+			var request proces.Request
+			err := json.NewDecoder(c).Decode(&request)
+			if err != nil {
+				log.Printf("Failed to decode request: %v", err)
+				return
+			}
+			var data any
+			switch request.Type {
+			case "cpu":
+				data = provider.GetCPUSnapshot()
+			case "gpu":
+				data = provider.GetGPUSnapshot()
+			default:
+				json.NewEncoder(c).Encode(map[string]string{"error": "unknown type"})
+				return
+			}
+			err = json.NewEncoder(c).Encode(data)
 			if err != nil {
 				log.Printf("Failed to encode and send: %v", err)
 			}

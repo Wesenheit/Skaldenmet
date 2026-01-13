@@ -9,5 +9,5 @@ type CommManager interface {
 	Notify(info proces.Process) error
 	Finalize() error
 	StartListening(processChan chan<- proces.Process) error
-	ServeQueries(stor storage.Storage)
+	ServeQueries(storage.Storage)
 }

@@ -41,28 +41,55 @@ func AggregateUniqueCPU(before CPUSummaryMetric, metrics []CPUMetric) CPUSummary
 	if len(metrics) == 0 {
 		return before
 	}
-	var CPU float64
-	var Memory float64
-	previous := before.End
-	var end_time time.Time
-	if previous.IsZero() {
-		end_time = before.Start
-	} else {
-		end_time = before.End
-	}
 
+	previousDuration := before.End.Sub(before.Start).Seconds()
+	if before.End.IsZero() {
+		previousDuration = 0
+	}
+	accumulatedCPU := before.CPU * previousDuration
+	accumulatedMemory := before.Memory * previousDuration
+
+	grouped := make(map[int32][]CPUMetric)
 	for _, metric := range metrics {
-		CPU += metric.CPU
-		Memory += metric.Memory
+		grouped[metric.Pid()] = append(grouped[metric.Pid()], metric)
 	}
-	previousCPU := before.CPU
-	previousMemory := before.Memory
 
-	recorder_time := metrics[0].Time
-	previous_duration := end_time.Sub(before.Start).Seconds()
-	current_duration := recorder_time.Sub(end_time).Seconds()
+	var latestTime time.Time
+	startTime := before.End
+	if startTime.IsZero() {
+		startTime = before.Start
+	}
 
-	currentCPU := (previousCPU*previous_duration + CPU*current_duration) / (current_duration + previous_duration)
-	currentMemory := (previousMemory*previous_duration + Memory*current_duration) / (current_duration + previous_duration)
-	return CPUSummaryMetric{Start: before.Start, End: recorder_time, CPU: currentCPU, Memory: currentMemory, Name: before.Name}
+	for _, metricGroup := range grouped {
+		if len(metricGroup) == 0 {
+			continue
+		}
+
+		for i, metric := range metricGroup {
+			if metric.Time.After(latestTime) {
+				latestTime = metric.Time
+			}
+
+			var timeDelta float64
+			if i == 0 {
+				timeDelta = metric.Time.Sub(startTime).Seconds()
+			} else {
+				timeDelta = metric.Time.Sub(metricGroup[i-1].Time).Seconds()
+			}
+
+			accumulatedCPU += metric.CPU * timeDelta
+			accumulatedMemory += metric.Memory * timeDelta
+		}
+	}
+
+	totalDuration := latestTime.Sub(before.Start).Seconds()
+	avgCPU := accumulatedCPU / totalDuration
+	avgMemory := accumulatedMemory / totalDuration
+	return CPUSummaryMetric{
+		Start:  before.Start,
+		End:    latestTime,
+		CPU:    avgCPU,
+		Memory: avgMemory,
+		Name:   before.Name,
+	}
 }
