@@ -2,8 +2,8 @@ package storage
 
 import (
 	"context"
-	"skaldenmet/internal/metrics"
-	"skaldenmet/internal/proces"
+	"github.com/Wesenheit/Skaldenmet/internal/metrics"
+	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"time"
 )
 

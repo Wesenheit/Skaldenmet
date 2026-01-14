@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
-	"skaldenmet/internal/metrics"
-	"skaldenmet/internal/proces"
+	"github.com/Wesenheit/Skaldenmet/internal/metrics"
+	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"sync"
 	"time"
 

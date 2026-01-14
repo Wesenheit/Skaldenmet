@@ -1,9 +1,9 @@
 package main
 
 import (
-	run "skaldenmet/internal/cli"
-	"skaldenmet/internal/daemon"
-	"skaldenmet/internal/display"
+	run "github.com/Wesenheit/Skaldenmet/internal/cli"
+	"github.com/Wesenheit/Skaldenmet/internal/daemon"
+	"github.com/Wesenheit/Skaldenmet/internal/display"
 
 	"github.com/spf13/cobra"
 )

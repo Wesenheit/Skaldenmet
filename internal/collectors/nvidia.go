@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"skaldenmet/internal/metrics"
+	"github.com/Wesenheit/Skaldenmet/internal/metrics"
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/spf13/viper"

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log"
 	"maps"
-	"skaldenmet/internal/proces"
+	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"sync"
 	"syscall"
 	"time"

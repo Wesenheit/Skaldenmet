@@ -1,4 +1,4 @@
-module skaldenmet
+module github.com/Wesenheit/Skaldenmet
 
 go 1.25.5
 

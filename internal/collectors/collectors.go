@@ -2,7 +2,7 @@ package collectors
 
 import (
 	"errors"
-	"skaldenmet/internal/metrics"
+	"github.com/Wesenheit/Skaldenmet/internal/metrics"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/process"

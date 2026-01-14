@@ -5,8 +5,8 @@ import (
 	"log"
 	"net"
 	"os"
-	"skaldenmet/internal/proces"
-	"skaldenmet/internal/storage"
+	"github.com/Wesenheit/Skaldenmet/internal/proces"
+	"github.com/Wesenheit/Skaldenmet/internal/storage"
 )
 
 type UnixSocketMonitor struct {
