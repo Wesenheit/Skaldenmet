@@ -175,11 +175,11 @@ var DaemonCmd = &cobra.Command{
 		}
 
 		daemon, err := NewDaemon(v)
-		defer daemon.Finalize(ctx)
 		if err != nil {
 			log.Printf("Deamon creation failed: %v", err)
 			return
 		}
+		defer daemon.Finalize(ctx)
 		if err := daemon.Start(ctx); err != nil {
 			log.Printf("Daemon failed: %v", err)
 		}
