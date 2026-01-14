@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
-	"os"
+	"maps"
 	"skaldenmet/internal/proces"
 	"sync"
 	"syscall"
@@ -24,7 +24,7 @@ type StateManager struct {
 func NewState(v *viper.Viper) (*StateManager, error) {
 	duration := v.GetDuration("state.interval")
 	if duration <= 0 {
-		return nil, errors.New("Wrong interval in seconds")
+		return nil, errors.New("wrong interval in seconds")
 	}
 	return &StateManager{
 		refresh:  duration,
@@ -63,111 +63,69 @@ func (s *StateManager) AddRoot(pid int32) {
 	defer s.Unlock()
 	s.rootPIDs[pid] = struct{}{}
 }
-func (s *StateManager) refreshProcessMap() {
-	for pid := range s.rootPIDs {
-		proc, err := os.FindProcess(int(pid))
-		if err != nil {
-			delete(s.rootPIDs, pid)
-			continue
-		}
-
-		err = proc.Signal(syscall.Signal(0))
-
-		if err != nil {
-			delete(s.rootPIDs, pid)
-		}
-	}
-}
 
 func (s *StateManager) RefreshTree() {
-	s.refreshProcessMap()
-	if len(s.rootPIDs) == 0 {
-		return
-	}
-
 	allProcs, err := process.Processes()
 	if err != nil {
 		return
 	}
 
-	aliveOnSystem := make(map[int32]struct{})
-	parentMap := make(map[int32]int32)
-	for _, p := range allProcs {
-		aliveOnSystem[p.Pid] = struct{}{}
-		ppid, _ := p.Ppid()
-		parentMap[p.Pid] = ppid
-	}
-
 	s.Lock()
 	defer s.Unlock()
 
-	for root := range s.rootPIDs {
-		if _, alive := aliveOnSystem[root]; !alive {
-			delete(s.rootPIDs, root)
+	if len(s.rootPIDs) == 0 {
+		s.fullTree = make(map[int32]int32)
+		return
+	}
+
+	leaderAlive := make(map[int32]bool)
+	for pgid := range s.rootPIDs {
+		leaderAlive[pgid] = false
+	}
+
+	newFullTree := make(map[int32]int32)
+
+	for _, p := range allProcs {
+		pgidInt, err := syscall.Getpgid(int(p.Pid))
+		pgid := int32(pgidInt)
+		if err != nil {
+			continue
+		}
+		if _, monitored := s.rootPIDs[pgid]; monitored {
+			newFullTree[p.Pid] = pgid
+
+			if p.Pid == pgid {
+				leaderAlive[pgid] = true
+			}
 		}
 	}
 
-	s.fullTree = make(map[int32]int32)
-
-	for pid := range parentMap {
-		curr := pid
-		for curr > 1 {
-			if _, isRoot := s.rootPIDs[curr]; isRoot {
-				s.fullTree[pid] = curr
-				break
+	for pgid := range s.rootPIDs {
+		if !leaderAlive[pgid] {
+			hasOrphans := false
+			for _, root := range newFullTree {
+				if root == pgid {
+					hasOrphans = true
+					break
+				}
 			}
 
-			next, exists := parentMap[curr]
-			if !exists || next == curr {
-				break
+			if hasOrphans {
+				log.Printf("Warning: Job PGID %d is orphaned (Leader dead, children active)\n", pgid)
+
+			} else {
+				delete(s.rootPIDs, pgid)
 			}
-			curr = next
 		}
 	}
+
+	s.fullTree = newFullTree
 }
 
 func (s *StateManager) GetSnapshot() map[int32]int32 {
 	s.RLock()
 	defer s.RUnlock()
 	copyMap := make(map[int32]int32)
-	for k, v := range s.fullTree {
-		copyMap[k] = v
-	}
+	maps.Copy(copyMap, s.fullTree)
 	return copyMap
-}
-
-func ExpandTargets(seedPIDs []int32) map[int32]int32 {
-	expanded := make(map[int32]int32)
-
-	for _, pid := range seedPIDs {
-		addChildRecursive(pid, expanded)
-	}
-
-	return expanded
-}
-
-func addChildRecursive(pid int32, targets map[int32]int32) {
-	if _, exists := targets[pid]; exists {
-		return
-	}
-
-	p, err := process.NewProcess(pid)
-	if err != nil {
-		return
-	}
-
-	ppid, err := p.Ppid()
-	if err != nil {
-		return
-	}
-	targets[pid] = ppid
-
-	children, err := p.Children()
-	if err != nil {
-		return
-	}
-
-	for _, child := range children {
-		addChildRecursive(child.Pid, targets)
-	}
 }

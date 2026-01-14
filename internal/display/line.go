@@ -2,6 +2,7 @@ package display
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -16,14 +17,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func IsProcessActive(pid int32) bool {
-	process, err := os.FindProcess(int(pid))
-	if err != nil {
+func IsProcessActive(pgid int32) bool {
+	err := syscall.Kill(-int(pgid), 0)
+
+	if err == nil {
+		return true
+	}
+
+	if errors.Is(err, syscall.ESRCH) {
 		return false
 	}
 
-	err = process.Signal(syscall.Signal(0))
-	return err == nil
+	if errors.Is(err, syscall.EPERM) {
+		return true
+	}
+
+	return false
 }
 func RenderTableCPU(data map[int32]metrics.CPUSummaryMetric) {
 	table := tablewriter.NewWriter(os.Stdout)
