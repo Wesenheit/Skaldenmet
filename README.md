@@ -12,7 +12,7 @@ It is designed to have similar usage to the SLURM scheduler while being much eas
 
 To install the application, you can either build it from source or install it with:
 ```bash
-go install https://github.com/Wesenheit/Skaldenmet/cmd/met/main.go
+go install github.com/Wesenheit/Skaldenmet/cmd/met@latest
 ```
 
 ## Usage
