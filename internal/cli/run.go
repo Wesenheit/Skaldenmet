@@ -43,7 +43,7 @@ var RunCmd = &cobra.Command{
 		} else {
 			name = varName
 		}
-		file_out, file_err, err := getLogFiles(name)
+		fileOut, fileErr, err := getLogFiles(name)
 		if err != nil {
 			log.Print("Failed to create files")
 		}
@@ -51,15 +51,19 @@ var RunCmd = &cobra.Command{
 		Cmd := exec.Command("sh", "-c", userCommand)
 		Cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		Cmd.Env = os.Environ()
-		Cmd.Stdout = file_out
-		Cmd.Stderr = file_err
-		defer file_err.Close()
-		defer file_out.Close()
+		Cmd.Stdout = fileOut
+		Cmd.Stderr = fileErr
 
 		err = Cmd.Start()
 		if err != nil {
 			log.Printf("failed to execute command: %s", err)
 		}
+		go func() {
+			defer fileOut.Close()
+			defer fileErr.Close()
+
+			Cmd.Wait()
+		}()
 		pgid, _ := syscall.Getpgid(Cmd.Process.Pid)
 		log.Printf("Started command %s with PPID %d", name, pgid)
 		info := proces.Process{
