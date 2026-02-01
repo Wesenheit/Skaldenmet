@@ -12,10 +12,10 @@ import (
 )
 
 type NVIDIAMonitor struct {
-	timeout      time.Duration
-	buffer       []metrics.Metric
-	max_size     int
-	device_count int16
+	timeout     time.Duration
+	buffer      []metrics.Metric
+	maxSize     int
+	deviceCount int16
 }
 
 func (c *NVIDIAMonitor) Name() string {
@@ -34,16 +34,16 @@ type NVIDIADeviceState struct {
 	Time        time.Time
 }
 
-func DeviceStateToMetric(device_state *NVIDIADeviceState, pid int32, ppid int32, device_id int) *metrics.GPUMetric {
+func DeviceStateToMetric(deviceState *NVIDIADeviceState, pid int32, ppid int32, deviceID int, totalProc int) *metrics.GPUMetric {
 	return &metrics.GPUMetric{
 		Pid_id:      pid,
 		PPid_id:     ppid,
-		Util:        device_state.Util,
-		Memory:      device_state.Memory,
-		Device:      device_id,
-		PowerW:      device_state.PowerW,
-		Temperature: device_state.Temperature,
-		Time:        device_state.Time,
+		Util:        deviceState.Util / float64(totalProc),
+		Memory:      deviceState.Memory / float64(totalProc),
+		Device:      deviceID,
+		PowerW:      deviceState.PowerW / float64(totalProc),
+		Temperature: deviceState.Temperature,
+		Time:        deviceState.Time,
 	}
 }
 
@@ -51,25 +51,25 @@ func (c *NVIDIAMonitor) MonitorDevice(device nvml.Device) (*NVIDIADeviceState, e
 	// Memory
 	memInfo, ret := nvml.DeviceGetMemoryInfo(device)
 	if ret != nvml.SUCCESS {
-		return nil, errors.New("Failed (mem)")
+		return nil, errors.New("nvidia failed (mem)")
 	}
 
 	// Utilization
 	utilization, ret := nvml.DeviceGetUtilizationRates(device)
 	if ret != nvml.SUCCESS {
-		return nil, errors.New("Failed (util)")
+		return nil, errors.New("nvidia failed (util)")
 	}
 
 	// Temperature
 	temp, ret := nvml.DeviceGetTemperature(device, nvml.TEMPERATURE_GPU)
 	if ret != nvml.SUCCESS {
-		return nil, errors.New("Failed (temp)")
+		return nil, errors.New("nvidia failed (temp)")
 	}
 
 	// Power
 	power, ret := nvml.DeviceGetPowerUsage(device)
 	if ret != nvml.SUCCESS {
-		return nil, errors.New("Failed (power)")
+		return nil, errors.New("nvidia failed (power)")
 	}
 	metric := &NVIDIADeviceState{
 		Memory:      float64(memInfo.Used) / (1024 * 1024 * 1024),
@@ -82,9 +82,9 @@ func (c *NVIDIAMonitor) MonitorDevice(device nvml.Device) (*NVIDIADeviceState, e
 	return metric, nil
 }
 
-func (c *NVIDIAMonitor) Collect(storage_chan chan []metrics.Metric, targets map[int32]int32) error {
-	for device_id := 0; device_id < int(c.device_count); device_id++ {
-		device, ret := nvml.DeviceGetHandleByIndex(device_id)
+func (c *NVIDIAMonitor) Collect(storageChan chan []metrics.Metric, targets map[int32]int32) error {
+	for deviceID := 0; deviceID < int(c.deviceCount); deviceID++ {
+		device, ret := nvml.DeviceGetHandleByIndex(deviceID)
 		if ret != nvml.SUCCESS {
 			continue
 		}
@@ -94,7 +94,7 @@ func (c *NVIDIAMonitor) Collect(storage_chan chan []metrics.Metric, targets map[
 			continue
 		}
 
-		dev_state, err := c.MonitorDevice(device)
+		devState, err := c.MonitorDevice(device)
 		if err != nil {
 			continue
 		}
@@ -103,17 +103,17 @@ func (c *NVIDIAMonitor) Collect(storage_chan chan []metrics.Metric, targets map[
 			pid := int32(proc.Pid)
 
 			if _, isTarget := targets[pid]; isTarget {
-				metric := DeviceStateToMetric(dev_state, pid, targets[pid], device_id)
+				metric := DeviceStateToMetric(devState, pid, targets[pid], deviceID, len(computeProcs))
 				c.buffer = append(c.buffer, metric)
 			}
 		}
 	}
 
-	if len(c.buffer) >= c.max_size {
+	if len(c.buffer) >= c.maxSize {
 		out := make([]metrics.Metric, len(c.buffer))
 		copy(out, c.buffer)
 
-		storage_chan <- out
+		storageChan <- out
 		c.buffer = c.buffer[:0] // Reuse memory
 	}
 
@@ -124,34 +124,34 @@ func (c *NVIDIAMonitor) Finalize() error {
 	if nvml.Shutdown() == nvml.SUCCESS {
 		return nil
 	} else {
-		return errors.New("Failed to shut down NVML")
+		return errors.New("failed to shut down NVML")
 	}
 }
 
 func NewNVIDIAMonitor(v *viper.Viper) (*NVIDIAMonitor, error) {
 	ret := nvml.Init()
 	if ret != nvml.SUCCESS {
-		return nil, errors.New("Failed to initalize")
+		return nil, errors.New("failed to initalize")
 	}
 	deviceCount, ret := nvml.DeviceGetCount()
 	if ret != nvml.SUCCESS {
-		return nil, errors.New("Failed to get device count")
+		return nil, errors.New("failed to get device count")
 	}
 	log.Printf("NVIDIA: Found %d GPU(s)", deviceCount)
 
-	max_size := v.GetInt("nvidiaCollector.size")
-	if max_size <= 0 {
-		return nil, errors.New("Wrong size")
+	maxSize := v.GetInt("nvidiaCollector.size")
+	if maxSize <= 0 {
+		return nil, errors.New("wrong size")
 	}
 
 	duration := v.GetDuration("nvidiaCollector.interval")
 	if duration <= 0 {
-		return nil, errors.New("Wrong interval in seconds")
+		return nil, errors.New("wrong interval in seconds")
 	}
 	return &NVIDIAMonitor{
-		timeout:      duration,
-		device_count: int16(deviceCount),
-		max_size:     max_size,
-		buffer:       []metrics.Metric{},
+		timeout:     duration,
+		deviceCount: int16(deviceCount),
+		maxSize:     maxSize,
+		buffer:      []metrics.Metric{},
 	}, nil
 }
