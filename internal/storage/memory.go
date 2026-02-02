@@ -3,9 +3,9 @@ package storage
 import (
 	"context"
 	"errors"
-	"log"
 	"github.com/Wesenheit/Skaldenmet/internal/metrics"
 	"github.com/Wesenheit/Skaldenmet/internal/proces"
+	"log"
 	"sync"
 	"time"
 
@@ -13,30 +13,30 @@ import (
 )
 
 type MemoryStorage struct {
-	storage_CPU map[int32]metrics.CPUSummaryMetric
-	storage_GPU map[int32]metrics.GPUSummaryMetric
-	mu          sync.RWMutex
-	interval    time.Duration
-	maxSize     uint32
+	storageCPU map[int32]metrics.CPUSummaryMetric
+	storageGPU map[int32]metrics.GPUSummaryMetric
+	mu         sync.RWMutex
+	interval   time.Duration
+	maxSize    uint32
 }
 
 func NewMemoryStorage(v *viper.Viper) (*MemoryStorage, error) {
 
 	maxSize := v.GetInt("storage.size")
 	if maxSize <= 0 {
-		return nil, errors.New("Wrong memory storage size")
+		return nil, errors.New("wrong memory storage size")
 	}
 
 	duration := v.GetDuration("storage.interval")
 	if duration <= 0 {
-		return nil, errors.New("Wrong memory interval in seconds")
+		return nil, errors.New("wrong memory interval in seconds")
 	}
 
 	return &MemoryStorage{
-		storage_CPU: make(map[int32]metrics.CPUSummaryMetric),
-		storage_GPU: make(map[int32]metrics.GPUSummaryMetric),
-		maxSize:     uint32(maxSize),
-		interval:    duration,
+		storageCPU: make(map[int32]metrics.CPUSummaryMetric),
+		storageGPU: make(map[int32]metrics.GPUSummaryMetric),
+		maxSize:    uint32(maxSize),
+		interval:   duration,
 	}, nil
 }
 func (m *MemoryStorage) Store(ctx context.Context, procChan chan proces.Process, metChan chan []metrics.Metric) error {
@@ -58,11 +58,11 @@ func (m *MemoryStorage) Store(ctx context.Context, procChan chan proces.Process,
 
 		case proc := <-procChan:
 			m.mu.Lock()
-			m.storage_CPU[proc.PGID] = metrics.CPUSummaryMetric{
+			m.storageCPU[proc.PGID] = metrics.CPUSummaryMetric{
 				Start: proc.StartTime,
 				Name:  proc.Name,
 			}
-			m.storage_GPU[proc.PGID] = metrics.GPUSummaryMetric{
+			m.storageGPU[proc.PGID] = metrics.GPUSummaryMetric{
 				Start: proc.StartTime,
 				Name:  proc.Name,
 			}
@@ -98,8 +98,8 @@ func AggregateAny[S any, T metrics.Metric, V any](
 func (m *MemoryStorage) AggregateBatch(metList []metrics.Metric) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	AggregateAny(metList, m.storage_CPU, metrics.AggregateUniqueCPU, func(ptr *metrics.CPUMetric) metrics.CPUMetric { return *ptr })
-	AggregateAny(metList, m.storage_GPU, metrics.AggregateUniqueGPU, func(ptr *metrics.GPUMetric) metrics.GPUMetric { return *ptr })
+	AggregateAny(metList, m.storageCPU, metrics.AggregateUniqueCPU, func(ptr *metrics.CPUMetric) metrics.CPUMetric { return *ptr })
+	AggregateAny(metList, m.storageGPU, metrics.AggregateUniqueGPU, func(ptr *metrics.GPUMetric) metrics.GPUMetric { return *ptr })
 }
 
 func GetSnapshot[T any](storage map[int32]T, mu *sync.RWMutex) map[int32]T {
@@ -113,11 +113,11 @@ func GetSnapshot[T any](storage map[int32]T, mu *sync.RWMutex) map[int32]T {
 }
 
 func (m *MemoryStorage) GetCPUSnapshot() map[int32]metrics.CPUSummaryMetric {
-	return GetSnapshot(m.storage_CPU, &m.mu)
+	return GetSnapshot(m.storageCPU, &m.mu)
 }
 
 func (m *MemoryStorage) GetGPUSnapshot() map[int32]metrics.GPUSummaryMetric {
-	return GetSnapshot(m.storage_GPU, &m.mu)
+	return GetSnapshot(m.storageGPU, &m.mu)
 }
 
 func (m *MemoryStorage) Interval() time.Duration {

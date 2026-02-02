@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wesenheit/Skaldenmet/internal/metrics"
+	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"log"
 	"net"
 	"os"
-	"github.com/Wesenheit/Skaldenmet/internal/metrics"
-	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"sort"
 	"syscall"
 	"time"
@@ -51,7 +51,7 @@ func RenderTableCPU(data map[int32]metrics.CPUSummaryMetric) {
 		var duration time.Duration
 		if IsProcessActive(int32(pid)) {
 			status = "Active"
-			duration = time.Now().Sub(metric.Start)
+			duration = time.Since(metric.Start)
 		} else {
 			status = "Finished"
 			if !metric.End.IsZero() {
@@ -89,7 +89,7 @@ func RenderTableGPU(data map[int32]metrics.GPUSummaryMetric) {
 		var duration time.Duration
 		if IsProcessActive(int32(pid)) {
 			status = "Active"
-			duration = time.Now().Sub(metric.Start)
+			duration = time.Since(metric.Start)
 		} else {
 			status = "Finished"
 			if !metric.End.IsZero() {
