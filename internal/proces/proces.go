@@ -1,3 +1,4 @@
+// Package proces specifies how processes are spawned and directed to daemon for monitoring
 package proces
 
 import "time"

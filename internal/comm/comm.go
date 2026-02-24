@@ -1,3 +1,4 @@
+// Package comm implements inferface for the communication for the daemon
 package comm
 
 import (

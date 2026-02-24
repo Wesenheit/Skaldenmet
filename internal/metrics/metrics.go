@@ -11,7 +11,7 @@ type Metric interface {
 }
 
 type CPUMetric struct {
-	Pid_id int32
+	PID    int32
 	PPID   int32
 	CPU    float64
 	Memory float64
@@ -19,7 +19,7 @@ type CPUMetric struct {
 }
 
 func (m *CPUMetric) Pid() int32 {
-	return m.Pid_id
+	return m.PID
 }
 func (m *CPUMetric) PPid() int32 {
 	return m.PPID

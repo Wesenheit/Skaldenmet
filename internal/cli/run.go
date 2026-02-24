@@ -1,11 +1,12 @@
-package run
+// Package cli start the job from the command line
+package cli
 
 import (
+	"github.com/Wesenheit/Skaldenmet/internal/comm"
+	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"log"
 	"os"
 	"os/exec"
-	"github.com/Wesenheit/Skaldenmet/internal/comm"
-	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"strings"
 	"syscall"
 	"time"
@@ -14,15 +15,15 @@ import (
 )
 
 func getLogFiles(name string) (*os.File, *os.File, error) {
-	out_file, err_out := os.Create(name + ".out")
-	if err_out != nil {
-		return nil, nil, err_out
+	outFile, errOut := os.Create(name + ".out")
+	if errOut != nil {
+		return nil, nil, errOut
 	}
-	err_file, err_err := os.Create(name + ".err")
-	if err_out != nil {
-		return nil, nil, err_err
+	errFile, errErr := os.Create(name + ".err")
+	if errErr != nil {
+		return nil, nil, errErr
 	}
-	return out_file, err_file, nil
+	return outFile, errFile, nil
 }
 
 var RunCmd = &cobra.Command{

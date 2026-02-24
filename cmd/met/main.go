@@ -1,7 +1,7 @@
 package main
 
 import (
-	run "github.com/Wesenheit/Skaldenmet/internal/cli"
+	"github.com/Wesenheit/Skaldenmet/internal/cli"
 	"github.com/Wesenheit/Skaldenmet/internal/daemon"
 	"github.com/Wesenheit/Skaldenmet/internal/display"
 
@@ -9,9 +9,9 @@ import (
 )
 
 func main() {
-	rootCmd := &cobra.Command{Use: "met"}
+	rootCmd := &cobra.Command{Use: "met", Short: "Simple single-node SLURM-like AI/HPC resource manager", Version: cli.GetVersion()}
 
-	var runCobra = run.RunCmd
+	var runCobra = cli.RunCmd
 	var daemonCobra = daemon.DaemonCmd
 	var listCobra = display.ListCmd
 	rootCmd.AddCommand(runCobra)

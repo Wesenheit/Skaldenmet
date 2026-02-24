@@ -1,3 +1,4 @@
+// Package collectors specifies collector inferface and implements simple CPU collector
 package collectors
 
 import (
@@ -11,29 +12,29 @@ import (
 
 type Collector interface {
 	Name() string
-	Collect(storage_chan chan []metrics.Metric, targets map[int32]int32) error
+	Collect(storageChan chan []metrics.Metric, targets map[int32]int32) error
 	Interval() time.Duration
 	Finalize() error
 }
 
-type CpuBaseCollector struct {
+type CPUBaseCollector struct {
 	timout time.Duration
 	buffer []metrics.Metric
 	size   int
 }
 
-func NewCpuBaseCollector(v *viper.Viper) (*CpuBaseCollector, error) {
+func NewCPUBaseCollector(v *viper.Viper) (*CPUBaseCollector, error) {
 	duration := v.GetDuration("cpuCollector.interval")
 	if duration <= 0 {
-		return nil, errors.New("Wrong interval in seconds")
+		return nil, errors.New("wrong interval in seconds")
 	}
 
 	size := v.GetInt("cpuCollector.size")
 	if size <= 0 {
-		return nil, errors.New("Wrong size")
+		return nil, errors.New("wrong size for the CPU collector")
 	}
 
-	return &CpuBaseCollector{
+	return &CPUBaseCollector{
 		timout: duration,
 		buffer: []metrics.Metric{},
 		size:   size,
@@ -41,7 +42,7 @@ func NewCpuBaseCollector(v *viper.Viper) (*CpuBaseCollector, error) {
 
 }
 
-func (c *CpuBaseCollector) Collect(storage_chan chan []metrics.Metric, targets map[int32]int32) error {
+func (c *CPUBaseCollector) Collect(storageChan chan []metrics.Metric, targets map[int32]int32) error {
 
 	for pid, ppid := range targets {
 		p, err := process.NewProcess(pid)
@@ -60,7 +61,7 @@ func (c *CpuBaseCollector) Collect(storage_chan chan []metrics.Metric, targets m
 		}
 
 		newMetric := &metrics.CPUMetric{
-			Pid_id: pid,
+			PID:    pid,
 			PPID:   ppid,
 			CPU:    cpuPer,
 			Memory: float64(memPer),
@@ -74,21 +75,21 @@ func (c *CpuBaseCollector) Collect(storage_chan chan []metrics.Metric, targets m
 		out := make([]metrics.Metric, len(c.buffer))
 		copy(out, c.buffer)
 
-		storage_chan <- out
+		storageChan <- out
 		c.buffer = c.buffer[:0]
 	}
 
 	return nil
 }
 
-func (c *CpuBaseCollector) Name() string {
+func (c *CPUBaseCollector) Name() string {
 	return "BaseCPU"
 }
 
-func (c *CpuBaseCollector) Interval() time.Duration {
+func (c *CPUBaseCollector) Interval() time.Duration {
 	return c.timout
 }
 
-func (c *CpuBaseCollector) Finalize() error {
+func (c *CPUBaseCollector) Finalize() error {
 	return nil
 }

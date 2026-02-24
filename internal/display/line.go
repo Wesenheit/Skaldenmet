@@ -1,3 +1,4 @@
+// Package display implements basic CLI utilities for monitoring display
 package display
 
 import (

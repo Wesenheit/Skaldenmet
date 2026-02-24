@@ -1,3 +1,4 @@
+// Package storage implements various storage options to store aggregated metrics
 package storage
 
 import (
@@ -5,11 +6,11 @@ import (
 	"errors"
 	"github.com/Wesenheit/Skaldenmet/internal/metrics"
 	"github.com/Wesenheit/Skaldenmet/internal/proces"
+	"github.com/spf13/viper"
 	"log"
+	"maps"
 	"sync"
 	"time"
-
-	"github.com/spf13/viper"
 )
 
 type MemoryStorage struct {
@@ -105,10 +106,7 @@ func (m *MemoryStorage) AggregateBatch(metList []metrics.Metric) {
 func GetSnapshot[T any](storage map[int32]T, mu *sync.RWMutex) map[int32]T {
 	mu.RLock()
 	defer mu.RUnlock()
-	snapshot := make(map[int32]T, len(storage))
-	for k, v := range storage {
-		snapshot[k] = v
-	}
+	snapshot := maps.Clone(storage)
 	return snapshot
 }
 

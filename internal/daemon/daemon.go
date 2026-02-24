@@ -1,16 +1,17 @@
+// Package daemon implements basic daemon utilities to monitor the usage
 package daemon
 
 import (
 	"context"
 	"errors"
-	"log"
-	"os"
-	"os/signal"
 	"github.com/Wesenheit/Skaldenmet/internal/collectors"
 	"github.com/Wesenheit/Skaldenmet/internal/comm"
 	"github.com/Wesenheit/Skaldenmet/internal/metrics"
 	"github.com/Wesenheit/Skaldenmet/internal/proces"
 	"github.com/Wesenheit/Skaldenmet/internal/storage"
+	"log"
+	"os"
+	"os/signal"
 	"sync"
 	"syscall"
 	"time"
@@ -30,7 +31,7 @@ type Daemon struct {
 
 var NameFunMapping = map[string]func(v *viper.Viper) (collectors.Collector, error){
 	"cpuCollector": func(v *viper.Viper) (collectors.Collector, error) {
-		return collectors.NewCpuBaseCollector(v)
+		return collectors.NewCPUBaseCollector(v)
 	},
 	"nvidiaCollector": func(v *viper.Viper) (collectors.Collector, error) {
 		return collectors.NewNVIDIAMonitor(v)
@@ -58,18 +59,18 @@ func getCollectors(v *viper.Viper) ([]collectors.Collector, error) {
 	}
 
 	if len(collectorList) == 0 {
-		return nil, errors.New("No collectors")
+		return nil, errors.New("no collectors")
 	}
 	return collectorList, nil
 }
 
 func NewDaemon(v *viper.Viper) (*Daemon, error) {
-	reciver_handle, err := comm.Create("/tmp/skald.socket")
+	reciverHandle, err := comm.Create("/tmp/skald.socket")
 	if err != nil {
 		return nil, err
 	}
 
-	server_handle, err := comm.Create("/tmp/skald_serve.socket")
+	serverHandle, err := comm.Create("/tmp/skald_serve.socket")
 	if err != nil {
 		return nil, err
 	}
@@ -88,8 +89,8 @@ func NewDaemon(v *viper.Viper) (*Daemon, error) {
 		return nil, err
 	}
 	daemon := &Daemon{
-		reciver:    reciver_handle,
-		server:     server_handle,
+		reciver:    reciverHandle,
+		server:     serverHandle,
 		collectors: collectorList,
 		manager:    state,
 		storage:    store,

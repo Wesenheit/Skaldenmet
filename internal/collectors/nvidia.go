@@ -36,8 +36,8 @@ type NVIDIADeviceState struct {
 
 func DeviceStateToMetric(deviceState *NVIDIADeviceState, pid int32, ppid int32, deviceID int, totalProc int) *metrics.GPUMetric {
 	return &metrics.GPUMetric{
-		Pid_id:      pid,
-		PPid_id:     ppid,
+		PID:         pid,
+		PPID:        ppid,
 		Util:        deviceState.Util / float64(totalProc),
 		Memory:      deviceState.Memory / float64(totalProc),
 		Device:      deviceID,

@@ -1,3 +1,4 @@
+// Package metrics implements different metrics  (cpu,gpu ) and specifies how they are aggregated
 package metrics
 
 import (
@@ -5,8 +6,8 @@ import (
 )
 
 type GPUMetric struct {
-	Pid_id      int32
-	PPid_id     int32
+	PID         int32
+	PPID        int32
 	Util        float64
 	Memory      float64
 	Device      int
@@ -20,11 +21,11 @@ func (m *GPUMetric) Name() string {
 }
 
 func (m *GPUMetric) Pid() int32 {
-	return m.Pid_id
+	return m.PID
 }
 
 func (m *GPUMetric) PPid() int32 {
-	return m.PPid_id
+	return m.PPID
 }
 
 func (m *GPUMetric) Timestamp() time.Time {
