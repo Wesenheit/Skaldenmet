@@ -27,38 +27,12 @@ func (c *NVIDIAMonitor) Interval() time.Duration {
 }
 
 type NVIDIADeviceState struct {
-	Util        float64
-	Memory      float64
 	PowerW      float64
 	Temperature float64
 	Time        time.Time
 }
 
-func DeviceStateToMetric(deviceState *NVIDIADeviceState, pid int32, ppid int32, deviceID int, totalProc int) *metrics.GPUMetric {
-	return &metrics.GPUMetric{
-		PID:         pid,
-		PPID:        ppid,
-		Util:        deviceState.Util / float64(totalProc),
-		Memory:      deviceState.Memory / float64(totalProc),
-		Device:      deviceID,
-		PowerW:      deviceState.PowerW / float64(totalProc),
-		Temperature: deviceState.Temperature,
-		Time:        deviceState.Time,
-	}
-}
-
-func (c *NVIDIAMonitor) MonitorDevice(device nvml.Device) (*NVIDIADeviceState, error) {
-	// Memory
-	memInfo, ret := nvml.DeviceGetMemoryInfo(device)
-	if ret != nvml.SUCCESS {
-		return nil, errors.New("nvidia failed (mem)")
-	}
-
-	// Utilization
-	utilization, ret := nvml.DeviceGetUtilizationRates(device)
-	if ret != nvml.SUCCESS {
-		return nil, errors.New("nvidia failed (util)")
-	}
+func (c *NVIDIAMonitor) GetGlobalVar(device nvml.Device) (*NVIDIADeviceState, error) {
 
 	// Temperature
 	temp, ret := nvml.DeviceGetTemperature(device, nvml.TEMPERATURE_GPU)
@@ -72,8 +46,6 @@ func (c *NVIDIAMonitor) MonitorDevice(device nvml.Device) (*NVIDIADeviceState, e
 		return nil, errors.New("nvidia failed (power)")
 	}
 	metric := &NVIDIADeviceState{
-		Memory:      float64(memInfo.Used) / (1024 * 1024 * 1024),
-		Util:        float64(utilization.Gpu),
 		Temperature: float64(temp),
 		PowerW:      float64(power),
 		Time:        time.Now(),
@@ -89,24 +61,32 @@ func (c *NVIDIAMonitor) Collect(storageChan chan []metrics.Metric, targets map[i
 			continue
 		}
 
+		samples, ret := device.GetProcessUtilization(0)
+		if ret != nvml.SUCCESS {
+			continue
+		}
 		computeProcs, ret := device.GetComputeRunningProcesses()
 		if ret != nvml.SUCCESS {
 			continue
 		}
-
-		devState, err := c.MonitorDevice(device)
+		usage, err := c.GetGlobalVar(device)
 		if err != nil {
 			continue
 		}
-
-		for _, proc := range computeProcs {
-			pid := int32(proc.Pid)
-
-			if _, isTarget := targets[pid]; isTarget {
-				metric := DeviceStateToMetric(devState, pid, targets[pid], deviceID, len(computeProcs))
-				c.buffer = append(c.buffer, metric)
+		for _, s := range samples {
+			metric := &metrics.GPUMetric{
+				PID:         int32(s.Pid),
+				PPID:        targets[int32(s.Pid)],
+				Util:        float64(s.SmUtil),
+				Memory:      float64(s.MemUtil),
+				Device:      deviceID,
+				PowerW:      usage.PowerW / float64(len(computeProcs)),
+				Temperature: usage.Temperature,
+				Time:        usage.Time,
 			}
+			c.buffer = append(c.buffer, metric)
 		}
+
 	}
 
 	if len(c.buffer) >= c.maxSize {
